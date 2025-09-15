@@ -565,7 +565,11 @@
             } else {
                 historyIndex++;
             }
-            
+
+            localStorage.setItem('ganttBoardData', JSON.stringify(data))
+            localStorage.setItem('ganttBoardHistory', JSON.stringify(history))
+            localStorage.setItem('ganttBoardHistoryIndex', historyIndex)
+
             updateUndoRedoButtons();
         }
         
