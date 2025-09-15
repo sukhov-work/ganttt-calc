@@ -1,0 +1,1262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Team Gantt Board</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 100%;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 20px;
+        }
+        
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        button {
+            padding: 8px 16px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        
+        button:hover {
+            background: #2980b9;
+        }
+        
+        button:disabled {
+            background: #95a5a6;
+            cursor: not-allowed;
+        }
+        
+        button.delete {
+            background: #e74c3c;
+        }
+        
+        button.delete:hover {
+            background: #c0392b;
+        }
+        
+        input, select {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        
+        .gantt-container {
+            overflow-x: auto;
+            margin-bottom: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        
+        .gantt-table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 1200px;
+        }
+        
+        .gantt-table th, .gantt-table td {
+            border: 1px solid #e0e0e0;
+            min-height: 50px;
+            position: relative;
+            vertical-align: top;
+        }
+        
+        .gantt-table th {
+            background: #f8f9fa;
+            font-weight: 600;
+            font-size: 12px;
+            padding: 8px;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        
+        .gantt-table th:first-child {
+            width: 150px;
+            position: sticky;
+            left: 0;
+            z-index: 11;
+            background: #e8eaed;
+        }
+        
+        .gantt-table td:first-child {
+            font-weight: 500;
+            padding: 8px;
+            background: #f8f9fa;
+            position: sticky;
+            left: 0;
+            z-index: 9;
+        }
+        
+        .week-cell {
+            min-width: 60px;
+            position: relative;
+            user-select: none;
+            padding: 2px;
+            vertical-align: top;
+        }
+        
+        .week-cell.highlight {
+            background: #fff3cd !important;
+        }
+        
+        .week-cell-stack {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+        
+        .task-block {
+            position: relative;
+            border-radius: 4px;
+            padding: 2px 6px;
+            color: white;
+            font-size: 10px;
+            cursor: move;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            min-height: 20px;
+        }
+        
+        .task-block.single-week {
+            cursor: grab;
+        }
+        
+        .task-block.partial {
+            opacity: 0.7;
+            background-image: repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(255,255,255,.1) 10px, rgba(255,255,255,.1) 20px);
+        }
+        
+        .task-block .task-name {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            font-size: 9px;
+        }
+        
+        .task-block .task-info {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 9px;
+            opacity: 0.9;
+        }
+        
+        .task-block .resize-handle {
+            position: absolute;
+            right: 0;
+            top: 0;
+            bottom: 0;
+            width: 10px;
+            cursor: ew-resize;
+            background: rgba(0,0,0,0.2);
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        
+        .task-block:hover .resize-handle {
+            opacity: 1;
+        }
+        
+        .task-block.dragging {
+            opacity: 0.5;
+        }
+        
+        .week-cell.drag-over {
+            background: #e3f2fd;
+        }
+        
+        .sidebar {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .panel {
+            flex: 1;
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+        }
+        
+        .panel h3 {
+            margin-bottom: 10px;
+            color: #34495e;
+            font-size: 14px;
+        }
+        
+        .task-template {
+            background: white;
+            padding: 10px;
+            margin-bottom: 8px;
+            border-radius: 6px;
+            cursor: move;
+            border: 2px solid transparent;
+            transition: all 0.2s;
+            position: relative;
+        }
+        
+        .task-template:hover {
+            border-color: #3498db;
+            transform: translateX(2px);
+        }
+        
+        .task-template.dragging {
+            opacity: 0.5;
+        }
+        
+        .task-template-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .task-template-name {
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        
+        .task-template-info {
+            font-size: 12px;
+            color: #666;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .task-template-info input {
+            width: 40px;
+            padding: 2px 4px;
+            font-size: 11px;
+        }
+        
+        .task-template-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 8px;
+        }
+        
+        .task-template-actions button {
+            padding: 4px 8px;
+            font-size: 11px;
+        }
+        
+        .week-blocks {
+            display: flex;
+            gap: 4px;
+            margin-top: 8px;
+            flex-wrap: wrap;
+        }
+        
+        .week-block {
+            background: #3498db;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            cursor: grab;
+            transition: transform 0.2s;
+        }
+        
+        .week-block:hover {
+            transform: scale(1.1);
+        }
+        
+        .week-block.dragging {
+            opacity: 0.5;
+        }
+        
+        .summary {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .summary h3 {
+            margin-bottom: 10px;
+            color: #2c3e50;
+        }
+        
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        
+        .summary-item {
+            background: white;
+            padding: 10px;
+            border-radius: 6px;
+            border-left: 4px solid #3498db;
+        }
+        
+        .summary-item.warning {
+            border-left-color: #f39c12;
+        }
+        
+        .summary-item.error {
+            border-left-color: #e74c3c;
+        }
+        
+        .person-capacity {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            margin-bottom: 4px;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal.active {
+            display: flex;
+        }
+        
+        .modal-content {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            min-width: 400px;
+            max-width: 600px;
+        }
+        
+        .modal-content h3 {
+            margin-bottom: 15px;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%;
+            padding: 8px;
+        }
+        
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 20px;
+        }
+        
+        .task-colors {
+            display: flex;
+            gap: 5px;
+            margin-top: 10px;
+        }
+        
+        .color-option {
+            width: 30px;
+            height: 30px;
+            border-radius: 4px;
+            cursor: pointer;
+            border: 2px solid transparent;
+        }
+        
+        .color-option.selected {
+            border-color: #333;
+        }
+        
+        .delete-icon {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            width: 20px;
+            height: 20px;
+            background: #e74c3c;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        
+        .mode-toggle {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            background: #f8f9fa;
+            padding: 5px;
+            border-radius: 6px;
+        }
+        
+        .mode-toggle label {
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Team Gantt Board</h1>
+        
+        <div class="controls">
+            <button onclick="addPerson()">Add Person</button>
+            <button onclick="addTaskTemplate()">Add Task Template</button>
+            <button onclick="saveProject()">Save Project</button>
+            <button onclick="loadProject()">Load Project</button>
+            <button onclick="clearBoard()">Clear Board</button>
+            <button id="undoBtn" onclick="undo()" disabled>Undo</button>
+            <button id="redoBtn" onclick="redo()" disabled>Redo</button>
+            <input type="file" id="fileInput" style="display: none" onchange="handleFileLoad(event)">
+            <select id="quarterSelect" onchange="changeQuarter()">
+                <option value="13">Q1 (13 weeks)</option>
+                <option value="13">Q2 (13 weeks)</option>
+                <option value="13">Q3 (13 weeks)</option>
+                <option value="13">Q4 (13 weeks)</option>
+            </select>
+            <div class="mode-toggle">
+                <label>Mode:</label>
+                <select id="modeSelect" onchange="changeMode()">
+                    <option value="granular">Granular (Weekly)</option>
+                    <option value="continuous">Continuous</option>
+                </select>
+            </div>
+        </div>
+        
+        <div class="sidebar">
+            <div class="panel">
+                <h3>Task Templates</h3>
+                <div id="taskTemplates"></div>
+            </div>
+            
+            <div class="panel">
+                <h3>Quick Actions</h3>
+                <button onclick="optimizeGantt()" style="width: 100%;">Optimize Gantt</button>
+            </div>
+        </div>
+        
+        <div class="summary">
+            <h3>Summary</h3>
+            <div class="summary-grid" id="summary"></div>
+        </div>
+        
+        <div class="gantt-container">
+            <table class="gantt-table" id="ganttTable">
+                <thead>
+                    <tr id="headerRow">
+                        <th>Team Member</th>
+                    </tr>
+                </thead>
+                <tbody id="ganttBody">
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <div class="modal" id="taskModal">
+        <div class="modal-content">
+            <h3>Add Task Template</h3>
+            <div class="form-group">
+                <label>Task Name</label>
+                <input type="text" id="taskName" placeholder="e.g., Feature A">
+            </div>
+            <div class="form-group">
+                <label>Duration (weeks)</label>
+                <input type="number" id="taskDuration" min="0.5" step="0.5" value="1">
+            </div>
+            <div class="form-group">
+                <label>Category</label>
+                <input type="text" id="taskCategory" placeholder="e.g., Development, Design">
+            </div>
+            <div class="form-group">
+                <label>Color</label>
+                <div class="task-colors" id="colorPicker"></div>
+            </div>
+            <div class="modal-actions">
+                <button onclick="closeModal()">Cancel</button>
+                <button onclick="saveTaskTemplate()">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let data = {
+            people: ['Alice', 'Bob', 'Charlie', 'Diana'],
+            weeks: 13,
+            taskTemplates: [
+                { id: 1, name: 'Feature A', duration: 3, category: 'Development', color: '#3498db' },
+                { id: 2, name: 'Feature B', duration: 2, category: 'Development', color: '#2ecc71' },
+                { id: 3, name: 'Design Sprint', duration: 1, category: 'Design', color: '#9b59b6' },
+                { id: 4, name: 'Testing', duration: 2, category: 'QA', color: '#e67e22' }
+            ],
+            assignments: [],
+            mode: 'granular'
+        };
+        
+        // Undo/Redo history
+        let history = [];
+        let historyIndex = -1;
+        const maxHistorySize = 50;
+        
+        const colors = ['#3498db', '#2ecc71', '#e74c3c', '#f39c12', '#9b59b6', '#1abc9c', '#34495e', '#e67e22'];
+        let selectedColor = colors[0];
+        let draggedElement = null;
+        let draggedData = null;
+        let highlightedTask = null;
+        
+        function saveState() {
+            // Save current state to history
+            const state = JSON.parse(JSON.stringify(data));
+            
+            // Remove any states after current index
+            history = history.slice(0, historyIndex + 1);
+            
+            // Add new state
+            history.push(state);
+            
+            // Limit history size
+            if (history.length > maxHistorySize) {
+                history.shift();
+            } else {
+                historyIndex++;
+            }
+            
+            updateUndoRedoButtons();
+        }
+        
+        function updateUndoRedoButtons() {
+            document.getElementById('undoBtn').disabled = historyIndex <= 0;
+            document.getElementById('redoBtn').disabled = historyIndex >= history.length - 1;
+        }
+        
+        function undo() {
+            if (historyIndex > 0) {
+                historyIndex--;
+                data = JSON.parse(JSON.stringify(history[historyIndex]));
+                renderGantt();
+                renderTaskTemplates();
+                updateSummary();
+                updateUndoRedoButtons();
+            }
+        }
+        
+        function redo() {
+            if (historyIndex < history.length - 1) {
+                historyIndex++;
+                data = JSON.parse(JSON.stringify(history[historyIndex]));
+                renderGantt();
+                renderTaskTemplates();
+                updateSummary();
+                updateUndoRedoButtons();
+            }
+        }
+        
+        function initializeBoard() {
+            saveState(); // Save initial state
+            renderGantt();
+            renderTaskTemplates();
+            renderColorPicker();
+            updateSummary();
+        }
+        
+        function renderGantt() {
+            const headerRow = document.getElementById('headerRow');
+            const ganttBody = document.getElementById('ganttBody');
+            
+            // Clear existing
+            while (headerRow.children.length > 1) {
+                headerRow.removeChild(headerRow.lastChild);
+            }
+            ganttBody.innerHTML = '';
+            
+            // Add week headers
+            for (let w = 1; w <= data.weeks; w++) {
+                const th = document.createElement('th');
+                th.textContent = `W${w}`;
+                headerRow.appendChild(th);
+            }
+            
+            // Add people rows
+            data.people.forEach((person, personIdx) => {
+                const row = document.createElement('tr');
+                const nameCell = document.createElement('td');
+                nameCell.innerHTML = `${person} <button class="delete" onclick="removePerson(${personIdx})" style="float: right; padding: 2px 6px; font-size: 10px;">×</button>`;
+                row.appendChild(nameCell);
+                
+                for (let w = 0; w < data.weeks; w++) {
+                    const cell = document.createElement('td');
+                    cell.className = 'week-cell';
+                    cell.dataset.person = personIdx;
+                    cell.dataset.week = w;
+                    
+                    cell.ondragover = handleDragOver;
+                    cell.ondrop = handleDrop;
+                    cell.ondragleave = handleDragLeave;
+                    
+                    // Create stack container
+                    const stackDiv = document.createElement('div');
+                    stackDiv.className = 'week-cell-stack';
+                    cell.appendChild(stackDiv);
+                    
+                    row.appendChild(cell);
+                }
+                
+                ganttBody.appendChild(row);
+            });
+            
+            // Group assignments by person-week
+            const cellAssignments = {};
+            
+            data.assignments.forEach((assignment, idx) => {
+                for (let w = 0; w < assignment.duration; w++) {
+                    const week = assignment.startWeek + w;
+                    if (week < data.weeks) {
+                        const key = `${assignment.person}-${week}`;
+                        if (!cellAssignments[key]) {
+                            cellAssignments[key] = [];
+                        }
+                        cellAssignments[key].push({ assignment, idx, weekOffset: w });
+                    }
+                }
+            });
+            
+            // Render stacked assignments
+            Object.entries(cellAssignments).forEach(([key, assignments]) => {
+                const [person, week] = key.split('-').map(Number);
+                const cell = document.querySelector(`.week-cell[data-person="${person}"][data-week="${week}"]`);
+                if (!cell) return;
+                
+                const stackDiv = cell.querySelector('.week-cell-stack');
+                const stackCount = assignments.length;
+                
+                assignments.forEach(({ assignment, idx, weekOffset }) => {
+                    const block = document.createElement('div');
+                    block.className = 'task-block';
+                    
+                    if (assignment.duration === 1) {
+                        block.className += ' single-week';
+                    }
+                    
+                    // Calculate fractional effort
+                    const fractionalEffort = assignment.partial ? 0.5 / stackCount : 1 / stackCount;
+                    
+                    block.style.backgroundColor = assignment.color;
+                    block.draggable = true;
+                    block.dataset.assignmentIdx = idx;
+                    
+                    const effortText = stackCount > 1 ? `${fractionalEffort.toFixed(2)}w` : 
+                                      assignment.partial ? '0.5w' : 
+                                      assignment.duration === 1 ? '1w' : `${assignment.duration}w`;
+                    
+                    block.innerHTML = `
+                        <span class="task-name">${assignment.name}</span>
+                        <span class="task-info">${effortText}</span>
+                        <div class="resize-handle"></div>
+                    `;
+                    
+                    // Drag handlers
+                    block.ondragstart = (e) => {
+                        draggedElement = block;
+                        draggedData = { type: 'assignment', idx: idx };
+                        block.classList.add('dragging');
+                    };
+                    
+                    block.ondragend = (e) => {
+                        block.classList.remove('dragging');
+                        draggedElement = null;
+                        draggedData = null;
+                    };
+                    
+                    // Double click to remove
+                    block.ondblclick = () => removeAssignment(idx);
+                    
+                    // Resize handler
+                    const resizeHandle = block.querySelector('.resize-handle');
+                    resizeHandle.onmousedown = (e) => {
+                        e.stopPropagation();
+                        const startX = e.clientX;
+                        const startDuration = assignment.duration;
+                        
+                        const onMouseMove = (e) => {
+                            const deltaX = e.clientX - startX;
+                            const newWeeks = Math.max(1, Math.round(startDuration + deltaX / 62));
+                            
+                            if (assignment.startWeek + newWeeks <= data.weeks) {
+                                assignment.duration = newWeeks;
+                                saveState();
+                                renderGantt();
+                                updateSummary();
+                            }
+                        };
+                        
+                        const onMouseUp = () => {
+                            document.removeEventListener('mousemove', onMouseMove);
+                            document.removeEventListener('mouseup', onMouseUp);
+                        };
+                        
+                        document.addEventListener('mousemove', onMouseMove);
+                        document.addEventListener('mouseup', onMouseUp);
+                    };
+                    
+                    stackDiv.appendChild(block);
+                });
+            });
+        }
+        
+        function renderTaskTemplates() {
+            const container = document.getElementById('taskTemplates');
+            container.innerHTML = '';
+            
+            data.taskTemplates.forEach((template, idx) => {
+                const div = document.createElement('div');
+                div.className = 'task-template';
+                div.style.borderLeft = `4px solid ${template.color}`;
+                
+                const mode = document.getElementById('modeSelect').value;
+                
+                if (mode === 'granular') {
+                    // Granular mode - show individual week blocks
+                    div.innerHTML = `
+                        <div class="task-template-header">
+                            <div>
+                                <div class="task-template-name">${template.name}</div>
+                                <div class="task-template-info">
+                                    <input type="number" value="${template.duration}" min="1" step="1" 
+                                           onchange="updateTemplateDuration(${idx}, this.value)" 
+                                           onclick="event.stopPropagation()">
+                                    weeks • ${template.category}
+                                </div>
+                            </div>
+                            <div class="delete-icon" onclick="removeTaskTemplate(${idx})">×</div>
+                        </div>
+                        <div class="week-blocks" id="weeks-${template.id}"></div>
+                    `;
+                    
+                    // Add week blocks
+                    const weekContainer = div.querySelector(`#weeks-${template.id}`);
+                    for (let w = 1; w <= template.duration; w++) {
+                        const weekBlock = document.createElement('div');
+                        weekBlock.className = 'week-block';
+                        weekBlock.style.backgroundColor = template.color;
+                        weekBlock.textContent = `W${w}`;
+                        weekBlock.draggable = true;
+                        
+                        weekBlock.ondragstart = (e) => {
+                            draggedElement = weekBlock;
+                            draggedData = { 
+                                type: 'week', 
+                                template: template, 
+                                weekNum: w 
+                            };
+                            weekBlock.classList.add('dragging');
+                        };
+                        
+                        weekBlock.ondragend = (e) => {
+                            weekBlock.classList.remove('dragging');
+                            draggedElement = null;
+                            draggedData = null;
+                        };
+                        
+                        weekContainer.appendChild(weekBlock);
+                    }
+                    
+                    // Highlight on hover
+                    div.onmouseenter = () => {
+                        highlightTaskAssignments(template.name);
+                    };
+                    
+                    div.onmouseleave = () => {
+                        clearHighlights();
+                    };
+                    
+                } else {
+                    // Continuous mode - drag whole template
+                    div.innerHTML = `
+                        <div class="task-template-header">
+                            <div>
+                                <div class="task-template-name">${template.name}</div>
+                                <div class="task-template-info">
+                                    <input type="number" value="${template.duration}" min="1" step="1" 
+                                           onchange="updateTemplateDuration(${idx}, this.value)" 
+                                           onclick="event.stopPropagation()">
+                                    weeks • ${template.category}
+                                </div>
+                            </div>
+                            <div class="delete-icon" onclick="removeTaskTemplate(${idx})">×</div>
+                        </div>
+                    `;
+                    
+                    div.draggable = true;
+                    
+                    div.ondragstart = (e) => {
+                        if (e.target.classList.contains('delete-icon')) return;
+                        draggedElement = div;
+                        draggedData = { type: 'template', template: template };
+                        div.classList.add('dragging');
+                    };
+                    
+                    div.ondragend = (e) => {
+                        div.classList.remove('dragging');
+                        draggedElement = null;
+                        draggedData = null;
+                    };
+                    
+                    // Highlight on hover
+                    div.onmouseenter = () => {
+                        highlightTaskAssignments(template.name);
+                    };
+                    
+                    div.onmouseleave = () => {
+                        clearHighlights();
+                    };
+                }
+                
+                container.appendChild(div);
+            });
+        }
+        
+        function updateTemplateDuration(idx, newDuration) {
+            const duration = parseInt(newDuration);
+            if (duration > 0) {
+                data.taskTemplates[idx].duration = duration;
+                saveState();
+                renderTaskTemplates();
+                updateSummary();
+            }
+        }
+        
+        function highlightTaskAssignments(taskName) {
+            // Clear previous highlights
+            clearHighlights();
+            
+            // Highlight all cells with this task
+            data.assignments.forEach(assignment => {
+                if (assignment.name === taskName) {
+                    for (let w = 0; w < assignment.duration; w++) {
+                        const cell = document.querySelector(
+                            `.week-cell[data-person="${assignment.person}"][data-week="${assignment.startWeek + w}"]`
+                        );
+                        if (cell) {
+                            cell.classList.add('highlight');
+                        }
+                    }
+                }
+            });
+        }
+        
+        function clearHighlights() {
+            document.querySelectorAll('.week-cell.highlight').forEach(cell => {
+                cell.classList.remove('highlight');
+            });
+        }
+        
+        function handleDragOver(e) {
+            e.preventDefault();
+            e.currentTarget.classList.add('drag-over');
+        }
+        
+        function handleDragLeave(e) {
+            e.currentTarget.classList.remove('drag-over');
+        }
+        
+        function handleDrop(e) {
+            e.preventDefault();
+            e.currentTarget.classList.remove('drag-over');
+            
+            const person = parseInt(e.currentTarget.dataset.person);
+            const week = parseInt(e.currentTarget.dataset.week);
+            
+            if (draggedData.type === 'template') {
+                // Add continuous assignment
+                const assignment = {
+                    name: draggedData.template.name,
+                    person: person,
+                    startWeek: week,
+                    duration: draggedData.template.duration,
+                    category: draggedData.template.category,
+                    color: draggedData.template.color,
+                    partial: false
+                };
+                
+                if (week + assignment.duration <= data.weeks) {
+                    data.assignments.push(assignment);
+                    saveState();
+                    renderGantt();
+                    updateSummary();
+                }
+            } else if (draggedData.type === 'week') {
+                // Add single week assignment
+                const assignment = {
+                    name: draggedData.template.name,
+                    person: person,
+                    startWeek: week,
+                    duration: 1,
+                    category: draggedData.template.category,
+                    color: draggedData.template.color,
+                    partial: false,
+                    weekNum: draggedData.weekNum
+                };
+                
+                data.assignments.push(assignment);
+                saveState();
+                renderGantt();
+                updateSummary();
+            } else if (draggedData.type === 'assignment') {
+                // Move existing assignment
+                const assignment = data.assignments[draggedData.idx];
+                if (week + assignment.duration <= data.weeks) {
+                    assignment.person = person;
+                    assignment.startWeek = week;
+                    saveState();
+                    renderGantt();
+                    updateSummary();
+                }
+            }
+        }
+        
+        function updateSummary() {
+            const summaryContainer = document.getElementById('summary');
+            summaryContainer.innerHTML = '';
+            
+            // Calculate person utilization with fractional assignments
+            const personUtilization = {};
+            data.people.forEach((person, idx) => {
+                personUtilization[idx] = 0;
+            });
+            
+            // Calculate task totals with fractional contributions
+            const taskTotals = {};
+            
+            // Calculate week-by-week utilization and task contributions
+            for (let person = 0; person < data.people.length; person++) {
+                for (let week = 0; week < data.weeks; week++) {
+                    const assignmentsInCell = data.assignments.filter(a => 
+                        a.person === person && 
+                        week >= a.startWeek && 
+                        week < a.startWeek + a.duration
+                    );
+                    
+                    if (assignmentsInCell.length > 0) {
+                        // Calculate fractional effort for each assignment in this cell
+                        assignmentsInCell.forEach(assignment => {
+                            const fractionalEffort = (assignment.partial ? 0.5 : 1) / assignmentsInCell.length;
+                            
+                            // Add to person utilization
+                            personUtilization[person] += fractionalEffort;
+                            
+                            // Add to task totals
+                            if (!taskTotals[assignment.name]) {
+                                taskTotals[assignment.name] = { allocated: 0, budget: 0 };
+                            }
+                            taskTotals[assignment.name].allocated += fractionalEffort;
+                        });
+                    }
+                }
+            }
+            
+            // Match with templates for budget
+            Object.keys(taskTotals).forEach(taskName => {
+                const template = data.taskTemplates.find(t => t.name === taskName);
+                if (template) {
+                    taskTotals[taskName].budget = template.duration;
+                }
+            });
+            
+            // Person summary
+            const personSummaryDiv = document.createElement('div');
+            personSummaryDiv.className = 'summary-item';
+            personSummaryDiv.innerHTML = '<strong>Person Utilization</strong>';
+            
+            data.people.forEach((person, idx) => {
+                const utilization = personUtilization[idx];
+                const percentage = (utilization / data.weeks * 100).toFixed(1);
+                const capacityDiv = document.createElement('div');
+                capacityDiv.className = 'person-capacity';
+                capacityDiv.innerHTML = `
+                    <span>${person}</span>
+                    <span>${utilization.toFixed(2)}/${data.weeks}w (${percentage}%)</span>
+                `;
+                personSummaryDiv.appendChild(capacityDiv);
+            });
+            
+            summaryContainer.appendChild(personSummaryDiv);
+            
+            // Task summary
+            const taskSummaryDiv = document.createElement('div');
+            taskSummaryDiv.className = 'summary-item';
+            
+            let hasIssues = false;
+            Object.entries(taskTotals).forEach(([taskName, totals]) => {
+                if (Math.abs(totals.allocated - totals.budget) > 0.01 && totals.budget > 0) {
+                    hasIssues = true;
+                    taskSummaryDiv.className = 'summary-item warning';
+                }
+            });
+            
+            taskSummaryDiv.innerHTML = '<strong>Task Allocation</strong>';
+            
+            Object.entries(taskTotals).forEach(([taskName, totals]) => {
+                const taskDiv = document.createElement('div');
+                taskDiv.className = 'person-capacity';
+                let status = '';
+                if (totals.budget > 0) {
+                    if (Math.abs(totals.allocated - totals.budget) < 0.01) {
+                        status = '✓';
+                    } else if (totals.allocated > totals.budget) {
+                        status = '⚠️ Over';
+                        taskDiv.style.color = '#e74c3c';
+                    } else {
+                        status = '⚠️ Under';
+                        taskDiv.style.color = '#f39c12';
+                    }
+                }
+                taskDiv.innerHTML = `
+                    <span>${taskName}</span>
+                    <span>${totals.allocated.toFixed(2)}/${totals.budget || '?'}w ${status}</span>
+                `;
+                taskSummaryDiv.appendChild(taskDiv);
+            });
+            
+            summaryContainer.appendChild(taskSummaryDiv);
+            
+            // Total summary
+            const totalSummaryDiv = document.createElement('div');
+            totalSummaryDiv.className = 'summary-item';
+            const totalAllocated = Object.values(personUtilization).reduce((a, b) => a + b, 0);
+            const totalCapacity = data.people.length * data.weeks;
+            const totalPercentage = (totalAllocated / totalCapacity * 100).toFixed(1);
+            
+            totalSummaryDiv.innerHTML = `
+                <strong>Total Capacity</strong>
+                <div class="person-capacity">
+                    <span>Used</span>
+                    <span>${totalAllocated.toFixed(2)}/${totalCapacity}w (${totalPercentage}%)</span>
+                </div>
+            `;
+            
+            summaryContainer.appendChild(totalSummaryDiv);
+        }
+        
+        function addPerson() {
+            const name = prompt('Enter person name:');
+            if (name) {
+                data.people.push(name);
+                saveState();
+                renderGantt();
+                updateSummary();
+            }
+        }
+        
+        function removePerson(idx) {
+            if (confirm(`Remove ${data.people[idx]}?`)) {
+                data.people.splice(idx, 1);
+                data.assignments = data.assignments.filter(a => a.person !== idx);
+                data.assignments.forEach(a => {
+                    if (a.person > idx) a.person--;
+                });
+                saveState();
+                renderGantt();
+                updateSummary();
+            }
+        }
+        
+        function removeAssignment(idx) {
+            data.assignments.splice(idx, 1);
+            saveState();
+            renderGantt();
+            updateSummary();
+        }
+        
+        function addTaskTemplate() {
+            document.getElementById('taskModal').classList.add('active');
+        }
+        
+        function closeModal() {
+            document.getElementById('taskModal').classList.remove('active');
+        }
+        
+        function saveTaskTemplate() {
+            const name = document.getElementById('taskName').value;
+            const duration = parseFloat(document.getElementById('taskDuration').value);
+            const category = document.getElementById('taskCategory').value || 'General';
+            
+            if (name && duration) {
+                data.taskTemplates.push({
+                    id: Date.now(),
+                    name: name,
+                    duration: duration,
+                    category: category,
+                    color: selectedColor
+                });
+                
+                saveState();
+                renderTaskTemplates();
+                closeModal();
+                
+                // Clear form
+                document.getElementById('taskName').value = '';
+                document.getElementById('taskDuration').value = '1';
+                document.getElementById('taskCategory').value = '';
+            }
+        }
+        
+        function removeTaskTemplate(idx) {
+            data.taskTemplates.splice(idx, 1);
+            saveState();
+            renderTaskTemplates();
+            updateSummary();
+        }
+        
+        function renderColorPicker() {
+            const picker = document.getElementById('colorPicker');
+            picker.innerHTML = '';
+            
+            colors.forEach(color => {
+                const div = document.createElement('div');
+                div.className = 'color-option';
+                if (color === selectedColor) {
+                    div.classList.add('selected');
+                }
+                div.style.backgroundColor = color;
+                div.onclick = () => {
+                    selectedColor = color;
+                    renderColorPicker();
+                };
+                picker.appendChild(div);
+            });
+        }
+        
+        function optimizeGantt() {
+            alert('Optimize Gantt functionality will be implemented soon!');
+            // Placeholder for smart optimization algorithm
+        }
+        
+        function clearBoard() {
+            if (confirm('Clear all assignments? Templates and people will remain.')) {
+                data.assignments = [];
+                saveState();
+                renderGantt();
+                updateSummary();
+            }
+        }
+        
+        function saveProject() {
+            const dataStr = JSON.stringify(data, null, 2);
+            const blob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `gantt-project-${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+        
+        function loadProject() {
+            document.getElementById('fileInput').click();
+        }
+        
+        function handleFileLoad(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        data = JSON.parse(e.target.result);
+                        saveState();
+                        renderGantt();
+                        renderTaskTemplates();
+                        updateSummary();
+                    } catch (err) {
+                        alert('Invalid project file');
+                    }
+                };
+                reader.readAsText(file);
+            }
+        }
+        
+        function changeQuarter() {
+            const weeks = parseInt(document.getElementById('quarterSelect').value);
+            data.weeks = weeks;
+            saveState();
+            renderGantt();
+            updateSummary();
+        }
+        
+        function changeMode() {
+            const mode = document.getElementById('modeSelect').value;
+            data.mode = mode;
+            renderTaskTemplates();
+        }
+        
+        // Initialize
+        // Check for saved data on load
+        const savedData = localStorage.getItem('ganttBoardData');
+        if (savedData) {
+            try {
+                data = JSON.parse(savedData);
+                const savedHistory = localStorage.getItem('ganttBoardHistory');
+                const savedHistoryIndex = localStorage.getItem('ganttBoardHistoryIndex');
+                
+                if (savedHistory) {
+                    history = JSON.parse(savedHistory);
+                }
+                
+                if (savedHistoryIndex) {
+                    historyIndex = parseInt(savedHistoryIndex);
+                }
+                
+                updateUndoRedoButtons();
+            } catch (e) {
+                console.error('Failed to load saved data:', e);
+            }
+        }
+        
+        initializeBoard();
+    </script>
+</body>
+</html>
