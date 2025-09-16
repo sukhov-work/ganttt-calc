@@ -587,6 +587,7 @@
             <label>Duration (weeks)</label>
             <input type="number" id="taskDuration" min="0.5" step="0.5" value="1">
         </div>
+        </div>
         <div class="form-group">
             <label>Category</label>
             <input type="text" id="taskCategory" placeholder="e.g., Development, Design">
@@ -907,6 +908,25 @@
         return usedWeeks;
     }
 
+    function computeDisplayedEffort(assignment) {
+        const ownWeight = assignment.partial ? 0.5 : 1;
+        let total = 0;
+        const start = assignment.startWeek;
+        const end = start + assignment.duration; // exclusive
+
+        for (let w = start; w < end; w++) {
+            const overlaps = data.assignments.filter(a =>
+                a.person === assignment.person &&
+                w >= a.startWeek &&
+                w < a.startWeek + a.duration
+            );
+            const share = ownWeight / Math.max(1, overlaps.length);
+            total += share;
+        }
+        return total;
+    }
+
+
     function renderGantt() {
         const headerRow = document.getElementById('headerRow');
         const ganttBody = document.getElementById('ganttBody');
@@ -1037,7 +1057,7 @@
 
                 const startCell = row.children[assignment.startWeek];
                 if (!startCell) return;
-                console.log(startCell.offsetTop)
+
                 const fractionalEffort = assignment.partial ? 0.5 / stackCount : 1 / stackCount;
 
                 block.style.backgroundColor = assignment.color;
@@ -1048,9 +1068,9 @@
                 block.style.left = `${stackDiv.offsetLeft}px`;
                 block.style.top = `${stackDiv.offsetTop+15*stackDiv.children.length}px`;
 
-
-                const effortText = stackCount > 1 ? `${assignment.duration * fractionalEffort.toFixed(2)}w` :
-                    assignment.partial ? '0.5w' : `${assignment.duration}w`;
+                //here we need to account that cellAssignments entries may have variable lengths from a single to multiple cells ,
+                const effort = computeDisplayedEffort(assignment);
+                const effortText = `${effort.toFixed(2)}w`;
 
                 block.innerHTML = `
                         <span class="task-name">${assignment.name}</span>
