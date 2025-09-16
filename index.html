@@ -509,6 +509,13 @@
         .context-menu-item.disabled:hover {
             background: transparent;
         }
+
+        .quick-actions-button {
+            width: 100%;
+            margin-bottom: 8px;
+            // make buttons with margin
+            display: block;
+        }
     </style>
 </head>
 <body>
@@ -545,7 +552,9 @@
 
         <div class="panel">
             <h3>Quick Actions</h3>
-            <button onclick="optimizeGantt()" style="width: 100%;">Optimize Gantt</button>
+            <button onclick="optimizeGantt()" class="quick-actions-button">Optimize Gantt</button>
+            <span></span>
+            <button onclick="exportToCsv()" class="quick-actions-button">Export CSV</button>
         </div>
     </div>
 
@@ -629,6 +638,33 @@
     let draggedData = null;
     let highlightedTask = null;
 
+
+    function encodeStateToUrl() {
+        try {
+            const encoded = btoa(encodeURIComponent(JSON.stringify(data)));
+            const url = new URL(window.location.href);
+            url.hash = `state=${encoded}`;
+            window.history.replaceState(null, '', url.toString())
+        } catch (e) {
+            console.warn('Failed to encode URL state:', e);
+        }
+    }
+
+    function decodeStateFromUrl() {
+        try {
+            const hash = window.location.hash.startsWith('#') ? window.location.hash.slice(1) : window.location.hash;
+            const params = new URLSearchParams(hash);
+            const encoded = params.get('state');
+            if (!encoded) return null;
+            const json = decodeURIComponent(atob(encoded));
+            return JSON.parse(json);
+        } catch (e) {
+            console.warn('Failed to decode URL state:', e);
+            return null;
+        }
+    }
+
+
     function saveState() {
         // Save current state to history
         const state = JSON.parse(JSON.stringify(data));
@@ -649,6 +685,9 @@
         localStorage.setItem('ganttBoardData', JSON.stringify(data))
         localStorage.setItem('ganttBoardHistory', JSON.stringify(history))
         localStorage.setItem('ganttBoardHistoryIndex', historyIndex)
+
+        // NEW: keep URL shareable
+        encodeStateToUrl();
 
         updateUndoRedoButtons();
     }
@@ -679,6 +718,50 @@
             updateUndoRedoButtons();
         }
     }
+
+    function exportToCsv() {
+        const weeks = data.weeks;
+
+        // Header row: Person, W1..Wn
+        const headers = ['Person', ...Array.from({ length: weeks }, (_, i) => `W${i + 1}`)];
+
+        // CSV escaping per RFC 4180
+        const csvEscape = (v) => {
+            const s = String(v ?? '');
+            const normalized = s.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+            return /[",\n]/.test(normalized) ? `"${normalized.replace(/"/g, '""')}"` : normalized;
+        };
+
+        const rows = [];
+        rows.push(headers.map(csvEscape).join(','));
+
+        data.people.forEach((person, pIdx) => {
+            const row = [person];
+            for (let w = 0; w < weeks; w++) {
+                const names = [
+                    ...new Set(
+                        data.assignments
+                            .filter(a => a.person === pIdx && w >= a.startWeek && w < a.startWeek + a.duration)
+                            .map(a => a.name)
+                    )
+                ];
+                row.push(names.join(' + ')); // flattened names only
+            }
+            rows.push(row.map(csvEscape).join(','));
+        });
+
+        const csvContent = '\ufeff' + rows.join('\r\n'); // UTF-8 BOM + CRLF
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `gantt-assignments-${new Date().toISOString().split('T')[0]}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+
+
+    //********************** MAIN INIT **********************//
 
     function initializeBoard() {
         saveState(); // Save initial state
@@ -1547,6 +1630,19 @@
         } catch (e) {
             console.error('Failed to load saved data:', e);
         }
+    }
+
+    // If URL carries a state, prefer it over localStorage
+    const urlStateDecoded = decodeStateFromUrl();
+    if (urlStateDecoded) {
+        console.log(urlStateDecoded);
+        data = urlStateDecoded;
+        history = [];
+        historyIndex = -1;
+
+        document.getElementById('weeksInput').value = data.weeks;
+
+        updateUndoRedoButtons();
     }
 
     initializeBoard();
