@@ -587,7 +587,7 @@
             <label>Duration (weeks)</label>
             <input type="number" id="taskDuration" min="0.5" step="0.5" value="1">
         </div>
-        </div>
+
         <div class="form-group">
             <label>Category</label>
             <input type="text" id="taskCategory" placeholder="e.g., Development, Design">
@@ -846,6 +846,7 @@
 
         saveState();
         renderGantt();
+        renderTaskTemplates();
         updateSummary();
         document.getElementById('contextMenu').classList.remove('active');
     }
@@ -905,6 +906,13 @@
                 usedWeeks.add(a.weekNum);
             }
         });
+
+        // sum all weeks used by assignments with this template name
+        const allDurations = data.assignments.filter(a => a.name === templateName).map(a => a.duration).reduce((a, b) => a + b, 0);
+
+        for (let w = 0; w < allDurations; w++) {
+            usedWeeks.add(w + 1); // +1 to match weekNum starting from 1
+        }
         return usedWeeks;
     }
 
@@ -1012,6 +1020,7 @@
                     console.log(assignment.duration);
                     saveState();
                     renderGantt();
+                    renderTaskTemplates();
                     updateSummary();
                 }
 
@@ -1073,7 +1082,7 @@
                 const effortText = `${effort.toFixed(2)}w`;
 
                 block.innerHTML = `
-                        <span class="task-name">${assignment.name}</span>
+                        <span class="task-name">[${assignment.category}] - ${assignment.name}</span>
                         <span class="task-info">${effortText}</span>
                          <div class="resize-handle"></div>
                     `;
@@ -1362,6 +1371,9 @@
         // Calculate task totals with fractional contributions
         const taskTotals = {};
 
+        // Calculate category totals with fractional contributions
+        const categoryTotals = {};
+
         // Calculate week-by-week utilization and task contributions
         for (let person = 0; person < data.people.length; person++) {
             for (let week = 0; week < data.weeks; week++) {
@@ -1384,6 +1396,14 @@
                             taskTotals[assignment.name] = { allocated: 0, budget: 0 };
                         }
                         taskTotals[assignment.name].allocated += fractionalEffort;
+
+
+                        // Category totals
+                        const cat = assignment.category || 'Uncategorized';
+                        if (!categoryTotals[cat]) {
+                            categoryTotals[cat] = { allocated: 0, budget: 0 };
+                        }
+                        categoryTotals[cat].allocated += fractionalEffort;
                     });
                 }
             }
@@ -1395,6 +1415,15 @@
             if (template) {
                 taskTotals[taskName].budget = template.duration;
             }
+        });
+
+        // Build category budgets by summing template durations per category
+        data.taskTemplates.forEach(t => {
+            const cat = t.category || 'Uncategorized';
+            if (!categoryTotals[cat]) {
+                categoryTotals[cat] = { allocated: 0, budget: 0 };
+            }
+            categoryTotals[cat].budget += t.duration;
         });
 
         // Person summary
@@ -1453,6 +1482,45 @@
         });
 
         summaryContainer.appendChild(taskSummaryDiv);
+
+
+        // Category summary (right next to task summary)
+        const categorySummaryDiv = document.createElement('div');
+        categorySummaryDiv.className = 'summary-item';
+
+        let catHasIssues = false;
+        Object.entries(categoryTotals).forEach(([, totals]) => {
+            if (totals.budget > 0 && Math.abs(totals.allocated - totals.budget) > 0.01) {
+                catHasIssues = true;
+            }
+        });
+        if (catHasIssues) categorySummaryDiv.classList.add('warning');
+
+        categorySummaryDiv.innerHTML = '<strong>Category Allocation</strong>';
+
+        Object.entries(categoryTotals).forEach(([catName, totals]) => {
+            const catDiv = document.createElement('div');
+            catDiv.className = 'person-capacity';
+            let status = '';
+            if (totals.budget > 0) {
+                if (Math.abs(totals.allocated - totals.budget) < 0.01) {
+                    status = '✓';
+                } else if (totals.allocated > totals.budget) {
+                    status = '⚠️ Over';
+                    catDiv.style.color = '#e74c3c';
+                } else {
+                    status = '⚠️ Under';
+                    catDiv.style.color = '#f39c12';
+                }
+            }
+            catDiv.innerHTML = `
+            <span>${catName}</span>
+            <span>${totals.allocated.toFixed(2)}/${totals.budget || '?'}w ${status}</span>
+        `;
+            categorySummaryDiv.appendChild(catDiv);
+        });
+        summaryContainer.appendChild(categorySummaryDiv);
+
 
         // Total summary
         const totalSummaryDiv = document.createElement('div');
@@ -1537,8 +1605,15 @@
     }
 
     function removeTaskTemplate(idx) {
+        const template = data.taskTemplates[idx];
+        if (!template) return;
+        // Remove all assignments related to this template (match by name)
+        data.assignments = data.assignments.filter(a => a.name !== template.name);
+
         data.taskTemplates.splice(idx, 1);
+
         saveState();
+        renderGantt();
         renderTaskTemplates();
         updateSummary();
     }
