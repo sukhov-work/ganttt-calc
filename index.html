@@ -884,6 +884,7 @@
         const dateInput = document.getElementById('startDateInput').value;
         data.startDate = dateInput ? new Date(dateInput) : null;
         renderGantt();
+        saveState();
     }
 
     function getWeekDateRange(weekIndex) {
