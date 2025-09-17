@@ -22,7 +22,7 @@
             margin: 0 auto;
             background: white;
             border-radius: 12px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
             padding: 20px;
         }
 
@@ -161,7 +161,7 @@
 
         .partial {
             opacity: 0.7;
-            background-image: repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(255,255,255,.1) 10px, rgba(255,255,255,.1) 20px);
+            background-image: repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(255, 255, 255, .1) 10px, rgba(255, 255, 255, .1) 20px);
         }
 
         .task-name {
@@ -186,7 +186,7 @@
             bottom: 0;
             width: 10px;
             cursor: ew-resize;
-            background: rgba(0,0,0,0.2);
+            background: rgba(0, 0, 0, 0.2);
             opacity: 1;
             transition: opacity 0.2s;
         }
@@ -212,7 +212,7 @@
             position: absolute;
             top: 2px;
             border-radius: 4px;
-            border: 2px dashed rgba(0,0,0,0.3);
+            border: 2px dashed rgba(0, 0, 0, 0.3);
             background: rgba(52, 152, 219, 0.3);
             min-height: 20px;
             opacity: 0.7;
@@ -377,7 +377,7 @@
             left: 0;
             right: 0;
             bottom: 0;
-            background: rgba(0,0,0,0.5);
+            background: rgba(0, 0, 0, 0.5);
             z-index: 1000;
             align-items: center;
             justify-content: center;
@@ -485,7 +485,7 @@
             background: white;
             border: 1px solid #ddd;
             border-radius: 4px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
             padding: 4px 0;
             z-index: 1000;
             display: none;
@@ -518,10 +518,8 @@
         .quick-actions-button {
             width: 100%;
             margin-bottom: 8px;
-            // make buttons with margin
-            display: block;
+        / / make buttons with margin display: block;
         }
-
 
 
         button.rename-btn {
@@ -674,10 +672,10 @@
         people: ['Yevhen', 'Pylyp', 'Andrii', 'Dzianis', 'Dmytro', 'Ihor', 'Denis'],
         weeks: 13,
         taskTemplates: [
-            { id: 1, name: 'Feature A', duration: 3, category: 'Development', color: '#3498db' },
-            { id: 2, name: 'Feature B', duration: 2, category: 'Development', color: '#2ecc71' },
-            { id: 3, name: 'Jumps', duration: 1, category: 'Jumps', color: '#9b59b6' },
-            { id: 4, name: 'EE', duration: 2, category: 'EE', color: '#e67e22' }
+            {id: 1, name: 'Feature A', duration: 3, category: 'Development', color: '#3498db'},
+            {id: 2, name: 'Feature B', duration: 2, category: 'Development', color: '#2ecc71'},
+            {id: 3, name: 'Jumps', duration: 1, category: 'Jumps', color: '#9b59b6'},
+            {id: 4, name: 'EE', duration: 2, category: 'EE', color: '#e67e22'}
         ],
         assignments: [],
         mode: 'granular'
@@ -783,7 +781,7 @@
         const weeks = data.weeks;
 
         // Header row: Person, W1..Wn
-        const headers = ['Person', ...Array.from({ length: weeks }, (_, i) => `W${i + 1}`)];
+        const headers = ['Person', ...Array.from({length: weeks}, (_, i) => `W${i + 1}`)];
 
         // CSV escaping per RFC 4180
         const csvEscape = (v) => {
@@ -811,7 +809,7 @@
         });
 
         const csvContent = '\ufeff' + rows.join('\r\n'); // UTF-8 BOM + CRLF
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' });
+        const blob = new Blob([csvContent], {type: 'text/csv;charset=utf-8'});
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -851,10 +849,10 @@
         const menu = document.getElementById('contextMenu');
 
         menu.style.left = e.pageX + 'px';
-        menu.style.top =  e.pageY + 'px';
+        menu.style.top = e.pageY + 'px';
         menu.classList.add('active');
 
-        contextMenuTarget = { person, week };
+        contextMenuTarget = {person, week};
 
         // Check if paste is available
         const pasteItem = menu.querySelector('.context-menu-item:nth-child(2)');
@@ -1106,7 +1104,7 @@
             if (!cellAssignments[key]) {
                 cellAssignments[key] = [];
             }
-            cellAssignments[key].push({ assignment, idx: realIdx });
+            cellAssignments[key].push({assignment, idx: realIdx});
         });
 
         // Render stacked single-week assignments
@@ -1118,7 +1116,7 @@
             const stackDiv = cell.querySelector('.week-cell-stack');
             const stackCount = assignments.length;
 
-            assignments.forEach(({ assignment, idx }) => {
+            assignments.forEach(({assignment, idx}) => {
                 const block = document.createElement('div');
                 block.className = 'task-block single-week';
 
@@ -1138,9 +1136,9 @@
                 block.draggable = true;
                 block.dataset.assignmentIdx = idx;
                 block.style.width = `${assignment.duration * stackDiv.scrollWidth}px`;
-                block.style.height = `${30/stackCount}px`;
+                block.style.height = `${30 / stackCount}px`;
                 block.style.left = `${stackDiv.offsetLeft}px`;
-                block.style.top = `${stackDiv.offsetTop+15*stackDiv.children.length}px`;
+                block.style.top = `${stackDiv.offsetTop + 15 * stackDiv.children.length}px`;
 
                 //here we need to account that cellAssignments entries may have variable lengths from a single to multiple cells ,
                 const effort = computeDisplayedEffort(assignment);
@@ -1155,7 +1153,7 @@
                 // Drag handlers
                 block.ondragstart = (e) => {
                     draggedElement = block;
-                    draggedData = { type: 'assignment', idx: idx };
+                    draggedData = {type: 'assignment', idx: idx};
                     block.classList.add('dragging');
                 };
 
@@ -1231,7 +1229,8 @@
                     draggedData = {
                         type: 'week',
                         template: template,
-                        weekNum: nextUnusedWeekIndex };
+                        weekNum: nextUnusedWeekIndex
+                    };
                     div.classList.add('dragging');
                 };
 
@@ -1428,7 +1427,7 @@
 
                         // Add to task totals
                         if (!taskTotals[assignment.name]) {
-                            taskTotals[assignment.name] = { allocated: 0, budget: 0 };
+                            taskTotals[assignment.name] = {allocated: 0, budget: 0};
                         }
                         taskTotals[assignment.name].allocated += fractionalEffort;
 
@@ -1436,7 +1435,7 @@
                         // Category totals
                         const cat = assignment.category || 'Uncategorized';
                         if (!categoryTotals[cat]) {
-                            categoryTotals[cat] = { allocated: 0, budget: 0 };
+                            categoryTotals[cat] = {allocated: 0, budget: 0};
                         }
                         categoryTotals[cat].allocated += fractionalEffort;
                     });
@@ -1700,15 +1699,17 @@
     function removeTaskTemplate(idx) {
         const template = data.taskTemplates[idx];
         if (!template) return;
-        // Remove all assignments related to this template (match by name)
-        data.assignments = data.assignments.filter(a => a.name !== template.name);
+        if (confirm(`Remove ${template.name}? All assignments using this template will also be removed!`)) {
+            // Remove all assignments related to this template (match by name)
+            data.assignments = data.assignments.filter(a => a.name !== template.name);
 
-        data.taskTemplates.splice(idx, 1);
+            data.taskTemplates.splice(idx, 1);
 
-        saveState();
-        renderGantt();
-        renderTaskTemplates();
-        updateSummary();
+            saveState();
+            renderGantt();
+            renderTaskTemplates();
+            updateSummary();
+        }
     }
 
     function renderColorPicker() {
@@ -1757,7 +1758,7 @@
 
     function saveProject() {
         const dataStr = JSON.stringify(data, null, 2);
-        const blob = new Blob([dataStr], { type: 'application/json' });
+        const blob = new Blob([dataStr], {type: 'application/json'});
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
