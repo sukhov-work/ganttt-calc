@@ -542,6 +542,31 @@
         button.rename-btn:hover {
             background: #e67e22;
         }
+
+        #taskTemplates {
+            max-height: 400px;
+            overflow-y: auto;
+            padding-right: 5px; /* Add some padding for scrollbar */
+        }
+
+        /* Optional: Style the scrollbar for better appearance */
+        #taskTemplates::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        #taskTemplates::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 3px;
+        }
+
+        #taskTemplates::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 3px;
+        }
+
+        #taskTemplates::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
     </style>
 </head>
 <body>
@@ -617,13 +642,15 @@
             <label>Category</label>
             <input type="text" id="taskCategory" placeholder="e.g., Development, Design">
         </div>
+        <div class="form-group">
+            <label>Color</label>
+            <div class="task-colors" id="colorPicker"></div>
+        </div>
+        <div class="form-group">
         <label>
             <input type="checkbox" id="taskExcluded" style="width: auto; margin-right: 8px;">
             Exclude from calculations (treat as non-billable/overhead)
         </label>
-        <div class="form-group">
-            <label>Color</label>
-            <div class="task-colors" id="colorPicker"></div>
         </div>
         <div class="modal-actions">
             <button onclick="closeModal()">Cancel</button>
@@ -652,6 +679,10 @@
             <input type="text" id="renameCategory" placeholder="New category">
         </div>
         <div class="form-group">
+            <label>Color</label>
+            <div class="task-colors" id="colorPickerEdit"></div>
+        </div>
+        <div class="form-group">
             <label>
                 <input type="checkbox" id="renameExcluded" style="width: auto; margin-right: 8px;">
                 Exclude from calculations (treat as non-billable/overhead)
@@ -662,7 +693,7 @@
         </div>
         <div class="modal-actions">
             <button onclick="closeRenameModal()">Cancel</button>
-            <button onclick="confirmRename()">Save</button>
+            <button onclick="confirmEdit()">Save</button>
         </div>
     </div>
 </div>
@@ -695,6 +726,7 @@
 
 
     let selectedColor = colors[0];
+    let selectedEditColor = null;
     let draggedElement = null;
     let draggedData = null;
     let highlightedTask = null;
@@ -829,6 +861,7 @@
         renderGantt();
         renderTaskTemplates();
         renderColorPicker();
+        renderEditColorPicker()
         updateSummary();
         setupContextMenu();
     }
@@ -1663,7 +1696,7 @@
         renameTemplateIdx = null;
     }
 
-    function confirmRename() {
+    function confirmEdit() {
         if (renameTemplateIdx === null) return;
 
         const template = data.taskTemplates[renameTemplateIdx];
@@ -1682,6 +1715,7 @@
         template.name = newName;
         template.category = newCategory || 'General';
         template.excludedFromCalculations = excludedFromCalculations || false;
+        template.color = selectedEditColor || template.color;
 
         // Update all assignments with this template
         data.assignments.forEach(assignment => {
@@ -1689,6 +1723,7 @@
                 assignment.name = newName;
                 assignment.category = template.category;
                 assignment.excludedFromCalculations = excludedFromCalculations;
+                assignment.color = template.color;
             }
         });
 
@@ -1729,6 +1764,25 @@
             div.onclick = () => {
                 selectedColor = color;
                 renderColorPicker();
+            };
+            picker.appendChild(div);
+        });
+    }
+
+    function renderEditColorPicker() {
+        const picker = document.getElementById('colorPickerEdit');
+        picker.innerHTML = '';
+
+        colors.forEach(color => {
+            const div = document.createElement('div');
+            div.className = 'color-option';
+            if (color === selectedEditColor) {
+                div.classList.add('selected');
+            }
+            div.style.backgroundColor = color;
+            div.onclick = () => {
+                selectedEditColor = color;
+                renderEditColorPicker();
             };
             picker.appendChild(div);
         });
