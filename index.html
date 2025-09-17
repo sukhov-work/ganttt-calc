@@ -479,6 +479,10 @@
             width: 60px;
         }
 
+        .weeks-input #startDateInput {
+            width: 120px;
+        }
+
         /* Context Menu */
         .context-menu {
             position: absolute;
@@ -586,9 +590,13 @@
             <label>Weeks:</label>
             <input type="number" id="weeksInput" value="13" min="1" max="52" onchange="changeWeeks()">
         </div>
+        <div class="weeks-input">
+            <label>Start Date:</label>
+            <input type="date" id="startDateInput" onchange="updateStartDate()">
+        </div>
         <div class="mode-toggle">
             <label>Mode:</label>
-            <select id="modeSelect" onchange="changeMode()">
+            <select id="modeSelect" onchange="changeMode()" disabled>
                 <option value="granular">Granular (Weekly)</option>
             </select>
         </div>
@@ -666,7 +674,7 @@
     <div class="context-menu-item" onclick="contextMenuDelete()">Delete</div>
 </div>
 
-<!-- Rename Modal -->
+<!-- Edit Modal -->
 <div class="modal" id="renameModal">
     <div class="modal-content">
         <h3>Edit Task Template</h3>
@@ -698,6 +706,7 @@
     </div>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/lz-string.min.js"></script>
 <script>
     let data = {
         people: ['Yevhen', 'Pylyp', 'Andrii', 'Dzianis', 'Dmytro', 'Ihor', 'Denis'],
@@ -709,7 +718,8 @@
             {id: 4, name: 'EE', duration: 2, category: 'EE', color: '#e67e22'}
         ],
         assignments: [],
-        mode: 'granular'
+        mode: 'granular',
+        startDate: null,
     };
 
     // Undo/Redo history
@@ -734,9 +744,10 @@
 
     function encodeStateToUrl() {
         try {
-            const encoded = btoa(encodeURIComponent(JSON.stringify(data)));
+            const json = JSON.stringify(data);
+            const compressed = LZString.compressToEncodedURIComponent(json);
             const url = new URL(window.location.href);
-            url.hash = `state=${encoded}`;
+            url.hash = `stateV2=${compressed}`;
             window.history.replaceState(null, '', url.toString())
         } catch (e) {
             console.warn('Failed to encode URL state:', e);
@@ -747,10 +758,26 @@
         try {
             const hash = window.location.hash.startsWith('#') ? window.location.hash.slice(1) : window.location.hash;
             const params = new URLSearchParams(hash);
-            const encoded = params.get('state');
-            if (!encoded) return null;
-            const json = decodeURIComponent(atob(encoded));
-            return JSON.parse(json);
+
+            // Try LZ-String format
+            const stateV2 = params.get('stateV2');
+            if (stateV2) {
+                const json = LZString.decompressFromEncodedURIComponent(stateV2);
+                return JSON.parse(json);
+            }
+
+            // Fallback to older formats...
+            const v1 = params.get('state');
+            if (v1) {
+                try {
+                    const json = decodeURIComponent(atob(v1));
+                    return JSON.parse(json);
+                } catch {
+                    // Handle legacy format that might be double-encoded
+                    return null;
+                }
+            }
+            return null;
         } catch (e) {
             console.warn('Failed to decode URL state:', e);
             return null;
@@ -851,6 +878,30 @@
         a.download = `gantt-assignments-${new Date().toISOString().split('T')[0]}.csv`;
         a.click();
         URL.revokeObjectURL(url);
+    }
+
+    function updateStartDate() {
+        const dateInput = document.getElementById('startDateInput').value;
+        data.startDate = dateInput ? new Date(dateInput) : null;
+        renderGantt();
+    }
+
+    function getWeekDateRange(weekIndex) {
+        if (!data.startDate) return `W${weekIndex}`;
+
+        const weekStart = new Date(data.startDate);
+        weekStart.setDate(weekStart.getDate() + (weekIndex * 7));
+
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekStart.getDate() + 6);
+
+        const formatDate = (date) => {
+            const day = date.getDate();
+            const month = date.getMonth() + 1;
+            return `${day}.${month.toString().padStart(2, '0')}`;
+        };
+
+        return `W${weekIndex} (${formatDate(weekStart)}-${formatDate(weekEnd)})`;
     }
 
 
@@ -1041,9 +1092,11 @@
         ganttBody.innerHTML = '';
 
         // Add week headers
-        for (let w = 1; w <= data.weeks; w++) {
+        for (let w = 0; w < data.weeks; w++) {
             const th = document.createElement('th');
-            th.textContent = `W${w}`;
+            th.textContent = getWeekDateRange(w);
+            th.style.fontSize = data.startDate ? '11px' : '12px';
+          //  th.textContent = `W${w}`;
             headerRow.appendChild(th);
         }
 
@@ -1112,7 +1165,7 @@
 
                 if (assignment.startWeek + newWeeks <= data.weeks && newWeeks !== startDuration) {
                     assignment.duration = newWeeks;
-                    console.log(assignment.duration);
+                 //   console.log(assignment.duration);
                     saveState();
                     renderGantt();
                     renderTaskTemplates();
@@ -1886,6 +1939,7 @@
         history = [];
         historyIndex = -1;
 
+        document.getElementById('startDateInput').value = (data.startDate || '' ).toString().split('T')[0];
         document.getElementById('weeksInput').value = data.weeks;
 
         updateUndoRedoButtons();
