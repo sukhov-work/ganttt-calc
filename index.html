@@ -239,6 +239,11 @@
             font-size: 14px;
         }
 
+        .task-block.excluded {
+            opacity: 0.7;
+            border: 2px dashed rgba(199, 39, 39, 0.8);
+        }
+
         .task-template {
             background: white;
             padding: 10px;
@@ -520,8 +525,19 @@
 
 
         button.rename-btn {
-            background: #6794b4;
-            padding: 3px;
+            position: absolute;
+            top: 5px;
+            right: 50px;
+            width: 60px;
+            height: 20px;
+            background: #3882d6;
+            color: white;
+
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
             font-size: 10px;
         }
 
@@ -551,7 +567,6 @@
             <label>Mode:</label>
             <select id="modeSelect" onchange="changeMode()">
                 <option value="granular">Granular (Weekly)</option>
-                <option value="continuous">Continuous</option>
             </select>
         </div>
     </div>
@@ -604,6 +619,10 @@
             <label>Category</label>
             <input type="text" id="taskCategory" placeholder="e.g., Development, Design">
         </div>
+        <label>
+            <input type="checkbox" id="taskExcluded" style="width: auto; margin-right: 8px;">
+            Exclude from calculations (treat as non-billable/overhead)
+        </label>
         <div class="form-group">
             <label>Color</label>
             <div class="task-colors" id="colorPicker"></div>
@@ -625,7 +644,7 @@
 <!-- Rename Modal -->
 <div class="modal" id="renameModal">
     <div class="modal-content">
-        <h3>Rename Task Template</h3>
+        <h3>Edit Task Template</h3>
         <div class="form-group">
             <label>Task Name</label>
             <input type="text" id="renameName" placeholder="New task name">
@@ -634,12 +653,18 @@
             <label>Category</label>
             <input type="text" id="renameCategory" placeholder="New category">
         </div>
+        <div class="form-group">
+            <label>
+                <input type="checkbox" id="renameExcluded" style="width: auto; margin-right: 8px;">
+                Exclude from calculations (treat as non-billable/overhead)
+            </label>
+        </div>
         <div class="form-group" style="background: #fff3cd; padding: 10px; border-radius: 4px; font-size: 13px;">
             <strong>⚠️ Note:</strong> This will update all existing assignments with this task.
         </div>
         <div class="modal-actions">
             <button onclick="closeRenameModal()">Cancel</button>
-            <button onclick="confirmRename()">Rename</button>
+            <button onclick="confirmRename()">Save</button>
         </div>
     </div>
 </div>
@@ -856,7 +881,8 @@
                 duration: 1, // Copy single week
                 category: a.category,
                 color: a.color,
-                partial: a.partial
+                partial: a.partial,
+                excludedFromCalculations: a.excludedFromCalculations
             }));
         }
 
@@ -874,7 +900,8 @@
                 duration: item.duration,
                 category: item.category,
                 color: item.color,
-                partial: item.partial
+                partial: item.partial,
+                excludedFromCalculations: item.excludedFromCalculations
             });
         });
 
@@ -1095,6 +1122,10 @@
                 const block = document.createElement('div');
                 block.className = 'task-block single-week';
 
+                if (assignment.excludedFromCalculations) {
+                    block.classList.add('excluded');
+                }
+
                 const row = ganttBody.children[assignment.person];
                 if (!row) return;
 
@@ -1116,7 +1147,7 @@
                 const effortText = `${effort.toFixed(2)}w`;
 
                 block.innerHTML = `
-                        <span class="task-name">[${assignment.category}] - ${assignment.name}</span>
+                        <span class="task-name">[${assignment.category}] - ${assignment.name} ${assignment.excludedFromCalculations ? '🚫Excluded' : ''} </span>
                         <span class="task-info">${effortText}</span>
                          <div class="resize-handle"></div>
                     `;
@@ -1165,17 +1196,19 @@
                         <div class="task-template-header">
                             <div>
 
-                                <div class="task-template-name">${template.name} -  <button class="rename-btn" onclick="openRenameModal(${idx})">Rename</button></div>
+                                <div class="task-template-name">${template.name} / <span style="color: #6a898f; font-size: 16px;">${template.category}</div>
                                 <div class="task-template-info">
                                     <input type="number" value="${template.duration}" min="1" step="1"
                                            onchange="updateTemplateDuration(${idx}, this.value)"
                                            onclick="event.stopPropagation()">
-                                    weeks • ${template.category}
+                                    weeks ${template.excludedFromCalculations ? '<span style="color: #7f8c8d; font-size: 11px; margin-left: 8px;">(🚫Excluded</span>)' : ''} </span>
                                 </div>
                             </div>
 
 
 
+
+                            <button class="rename-btn" onclick="openRenameModal(${idx})">Edit✏️</button>
                             <div class="delete-icon" onclick="removeTaskTemplate(${idx})">×</div>
 
                         </div>
@@ -1251,46 +1284,6 @@
                     clearHighlights();
                 };
 
-            } else {
-                // Continuous mode - drag whole template
-                div.innerHTML = `
-                        <div class="task-template-header">
-                            <div>
-                                <div class="task-template-name">${template.name}</div>
-                                <div class="task-template-info">
-                                    <input type="number" value="${template.duration}" min="1" step="1"
-                                           onchange="updateTemplateDuration(${idx}, this.value)"
-                                           onclick="event.stopPropagation()">
-                                    weeks • ${template.category}
-                                </div>
-                            </div>
-                            <div class="delete-icon" onclick="removeTaskTemplate(${idx})">×</div>
-                        </div>
-                    `;
-
-                div.draggable = true;
-
-                div.ondragstart = (e) => {
-                    if (e.target.classList.contains('delete-icon')) return;
-                    draggedElement = div;
-                    draggedData = { type: 'template', template: template };
-                    div.classList.add('dragging');
-                };
-
-                div.ondragend = (e) => {
-                    div.classList.remove('dragging');
-                    draggedElement = null;
-                    draggedData = null;
-                };
-
-                // Highlight on hover
-                div.onmouseenter = () => {
-                    highlightTaskAssignments(template.name);
-                };
-
-                div.onmouseleave = () => {
-                    clearHighlights();
-                };
             }
 
             container.appendChild(div);
@@ -1357,7 +1350,8 @@
                 duration: draggedData.template.duration,
                 category: draggedData.template.category,
                 color: draggedData.template.color,
-                partial: false
+                partial: false,
+                excludedFromCalculations: draggedData.template.excludedFromCalculations || false
             };
 
             if (week + assignment.duration <= data.weeks) {
@@ -1376,7 +1370,8 @@
                 category: draggedData.template.category,
                 color: draggedData.template.color,
                 partial: false,
-                weekNum: draggedData.weekNum
+                weekNum: draggedData.weekNum,
+                excludedFromCalculations: draggedData.template.excludedFromCalculations
             };
 
             data.assignments.push(assignment);
@@ -1419,7 +1414,8 @@
                 const assignmentsInCell = data.assignments.filter(a =>
                     a.person === person &&
                     week >= a.startWeek &&
-                    week < a.startWeek + a.duration
+                    week < a.startWeek + a.duration &&
+                    !a.excludedFromCalculations
                 );
 
                 if (assignmentsInCell.length > 0) {
@@ -1458,11 +1454,13 @@
 
         // Build category budgets by summing template durations per category
         data.taskTemplates.forEach(t => {
-            const cat = t.category || 'Uncategorized';
-            if (!categoryTotals[cat]) {
-                categoryTotals[cat] = { allocated: 0, budget: 0 };
+            if (!t.excludedFromCalculations) {
+                const cat = t.category || 'Uncategorized';
+                if (!categoryTotals[cat]) {
+                    categoryTotals[cat] = {allocated: 0, budget: 0};
+                }
+                categoryTotals[cat].budget += t.duration;
             }
-            categoryTotals[cat].budget += t.duration;
         });
 
         // Person summary
@@ -1622,6 +1620,8 @@
         const name = document.getElementById('taskName').value;
         const duration = parseFloat(document.getElementById('taskDuration').value);
         const category = document.getElementById('taskCategory').value || 'General';
+        const excludedFromCalculations = document.getElementById('taskExcluded').checked;
+
 
         if (name && duration) {
             data.taskTemplates.push({
@@ -1629,7 +1629,8 @@
                 name: name,
                 duration: duration,
                 category: category,
-                color: selectedColor
+                color: selectedColor,
+                excludedFromCalculations: excludedFromCalculations
             });
 
             saveState();
@@ -1651,6 +1652,7 @@
         renameTemplateIdx = idx;
         document.getElementById('renameName').value = template.name;
         document.getElementById('renameCategory').value = template.category;
+        document.getElementById('renameExcluded').checked = template.excludedFromCalculations || false;
         document.getElementById('renameModal').classList.add('active');
     }
 
@@ -1667,6 +1669,7 @@
         const oldCategory = template.category;
         const newName = document.getElementById('renameName').value.trim();
         const newCategory = document.getElementById('renameCategory').value.trim();
+        const excludedFromCalculations = document.getElementById('renameExcluded').checked;
 
         if (!newName) {
             alert('Task name cannot be empty');
@@ -1676,12 +1679,14 @@
         // Update template
         template.name = newName;
         template.category = newCategory || 'General';
+        template.excludedFromCalculations = excludedFromCalculations || false;
 
         // Update all assignments with this template
         data.assignments.forEach(assignment => {
             if (assignment.name === oldName) {
                 assignment.name = newName;
                 assignment.category = template.category;
+                assignment.excludedFromCalculations = excludedFromCalculations;
             }
         });
 
