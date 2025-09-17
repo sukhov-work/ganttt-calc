@@ -516,6 +516,18 @@
             // make buttons with margin
             display: block;
         }
+
+
+
+        button.rename-btn {
+            background: #6794b4;
+            padding: 3px;
+            font-size: 10px;
+        }
+
+        button.rename-btn:hover {
+            background: #e67e22;
+        }
     </style>
 </head>
 <body>
@@ -608,6 +620,28 @@
     <div class="context-menu-item" onclick="contextMenuCopy()">Copy</div>
     <div class="context-menu-item" onclick="contextMenuPaste()">Paste</div>
     <div class="context-menu-item" onclick="contextMenuDelete()">Delete</div>
+</div>
+
+<!-- Rename Modal -->
+<div class="modal" id="renameModal">
+    <div class="modal-content">
+        <h3>Rename Task Template</h3>
+        <div class="form-group">
+            <label>Task Name</label>
+            <input type="text" id="renameName" placeholder="New task name">
+        </div>
+        <div class="form-group">
+            <label>Category</label>
+            <input type="text" id="renameCategory" placeholder="New category">
+        </div>
+        <div class="form-group" style="background: #fff3cd; padding: 10px; border-radius: 4px; font-size: 13px;">
+            <strong>⚠️ Note:</strong> This will update all existing assignments with this task.
+        </div>
+        <div class="modal-actions">
+            <button onclick="closeRenameModal()">Cancel</button>
+            <button onclick="confirmRename()">Rename</button>
+        </div>
+    </div>
 </div>
 
 <script>
@@ -1130,7 +1164,8 @@
                 div.innerHTML = `
                         <div class="task-template-header">
                             <div>
-                                <div class="task-template-name">${template.name}</div>
+
+                                <div class="task-template-name">${template.name} -  <button class="rename-btn" onclick="openRenameModal(${idx})">Rename</button></div>
                                 <div class="task-template-info">
                                     <input type="number" value="${template.duration}" min="1" step="1"
                                            onchange="updateTemplateDuration(${idx}, this.value)"
@@ -1138,7 +1173,11 @@
                                     weeks • ${template.category}
                                 </div>
                             </div>
+
+
+
                             <div class="delete-icon" onclick="removeTaskTemplate(${idx})">×</div>
+
                         </div>
                         <div class="week-blocks" id="weeks-${template.id}"></div>
                     `;
@@ -1602,6 +1641,55 @@
             document.getElementById('taskDuration').value = '1';
             document.getElementById('taskCategory').value = '';
         }
+    }
+
+    // Rename functions
+    function openRenameModal(idx) {
+        const template = data.taskTemplates[idx];
+        if (!template) return;
+
+        renameTemplateIdx = idx;
+        document.getElementById('renameName').value = template.name;
+        document.getElementById('renameCategory').value = template.category;
+        document.getElementById('renameModal').classList.add('active');
+    }
+
+    function closeRenameModal() {
+        document.getElementById('renameModal').classList.remove('active');
+        renameTemplateIdx = null;
+    }
+
+    function confirmRename() {
+        if (renameTemplateIdx === null) return;
+
+        const template = data.taskTemplates[renameTemplateIdx];
+        const oldName = template.name;
+        const oldCategory = template.category;
+        const newName = document.getElementById('renameName').value.trim();
+        const newCategory = document.getElementById('renameCategory').value.trim();
+
+        if (!newName) {
+            alert('Task name cannot be empty');
+            return;
+        }
+
+        // Update template
+        template.name = newName;
+        template.category = newCategory || 'General';
+
+        // Update all assignments with this template
+        data.assignments.forEach(assignment => {
+            if (assignment.name === oldName) {
+                assignment.name = newName;
+                assignment.category = template.category;
+            }
+        });
+
+        closeRenameModal();
+        saveState();
+        renderGantt();
+        renderTaskTemplates();
+        updateSummary();
     }
 
     function removeTaskTemplate(idx) {
