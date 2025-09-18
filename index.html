@@ -571,6 +571,39 @@
         #taskTemplates::-webkit-scrollbar-thumb:hover {
             background: #555;
         }
+
+        .task-tooltip {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            white-space: nowrap;
+            pointer-events: none;
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.2s;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+
+        .task-tooltip.visible {
+            opacity: 0.9;
+            display: block;
+        }
+
+        .task-tooltip::after {
+            content: '';
+            position: absolute;
+            bottom: -5px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 5px solid transparent;
+            border-right: 5px solid transparent;
+            border-top: 5px solid rgba(0, 0, 0, 0.9);
+        }
     </style>
 </head>
 <body>
@@ -740,6 +773,7 @@
     let draggedElement = null;
     let draggedData = null;
     let highlightedTask = null;
+    let tooltip = null;
 
 
     function encodeStateToUrl() {
@@ -897,14 +931,43 @@
         weekEnd.setDate(weekStart.getDate() + 6);
 
         const formatDate = (date) => {
-            const day = date.getDate();
-            const month = date.getMonth() + 1;
-            return `${day}.${month.toString().padStart(2, '0')}`;
+            return date.toLocaleDateString('en-US', {
+                month: 'long',
+                day: 'numeric'
+            });
         };
 
-        return `W${weekIndex} (${formatDate(weekStart)}-${formatDate(weekEnd)})`;
+
+
+        return `${formatDate(weekStart)} - ${formatDate(weekEnd)} (W${weekIndex})`;
     }
 
+    function createTooltip() {
+        tooltip = document.createElement('div');
+        tooltip.className = 'task-tooltip';
+        document.body.appendChild(tooltip);
+    }
+
+    function setupKeyboardShortcutsForUndoRedo() {
+        document.addEventListener('keydown', (e) => {
+            // Undo: Ctrl+Z or Cmd+Z
+            if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+                e.preventDefault();
+                if (!document.getElementById('undoBtn').disabled) {
+                    undo();
+                }
+            }
+
+            // Redo: Ctrl+Y or Cmd+Shift+Z or Ctrl+Shift+Z
+            if ((e.ctrlKey || e.metaKey) &&
+                (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
+                e.preventDefault();
+                if (!document.getElementById('redoBtn').disabled) {
+                    redo();
+                }
+            }
+        });
+    }
 
     //********************** MAIN INIT **********************//
 
@@ -916,6 +979,8 @@
         renderEditColorPicker()
         updateSummary();
         setupContextMenu();
+        createTooltip();
+        setupKeyboardShortcutsForUndoRedo()
     }
 
     function setupContextMenu() {
@@ -1259,11 +1324,38 @@
 
                 stackDiv.appendChild(block);
 
+                setupToolTipHandlers(block, assignment, effort)
+
                 // Improved resize handler
                 const resizeHandle = block.querySelector('.resize-handle');
                 resizeHandle.onmousedown = (e) => resizeBlockHandler(e, assignment, block, stackDiv);
             });
         });
+    }
+
+    function setupToolTipHandlers(block, assignment, effort) {
+        block.onmouseenter = (e) => {
+            e.stopPropagation();
+            if (!tooltip) return;
+            const fullText = `[${assignment.category}] ${assignment.name} |  ${effort.toFixed(2)}w`;
+            tooltip.textContent = fullText;
+
+            const rect = e.target.getBoundingClientRect();
+
+            assignment.duration > 1 ?
+                tooltip.style.left = rect.left + ((rect.right - rect.left)/assignment.duration)  + 'px' :
+                tooltip.style.left = rect.left - ((rect.right - rect.left)/2) +  'px';
+
+            console.log(rect.top, e.clientX, e.clientY);
+            tooltip.style.top = e.pageY - (rect.bottom - rect.top)*2 +  'px';
+            tooltip.style.display = 'block';
+            tooltip.classList.add('visible');
+        };
+
+        block.onmouseleave = () => {
+            tooltip.classList.remove('visible');
+            tooltip.style.display = 'none';
+        };
     }
 
     function renderTaskTemplates() {
