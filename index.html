@@ -969,6 +969,22 @@
         });
     }
 
+    function debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
+    }
+
+    const handleResize = debounce(function() {
+        renderGantt();
+    }, 250);
+
     //********************** MAIN INIT **********************//
 
     function initializeBoard() {
@@ -981,6 +997,8 @@
         setupContextMenu();
         createTooltip();
         setupKeyboardShortcutsForUndoRedo()
+
+        window.addEventListener('resize', handleResize);
     }
 
     function setupContextMenu() {
@@ -1284,8 +1302,6 @@
 
                 const startCell = row.children[assignment.startWeek];
                 if (!startCell) return;
-
-                const fractionalEffort = assignment.partial ? 0.5 / stackCount : 1 / stackCount;
 
                 block.style.backgroundColor = assignment.color;
                 block.draggable = true;
