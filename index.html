@@ -155,7 +155,7 @@
             z-index: 5;
         }
 
-        .task-block.single-week {
+        .task-block.weeks {
             cursor: grab;
         }
 
@@ -740,6 +740,8 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/lz-string.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.21/lodash.min.js"></script>
+
 <script>
     let data = {
         people: ['Yevhen', 'Pylyp', 'Andrii', 'Dzianis', 'Dmytro', 'Ihor', 'Denis'],
@@ -1118,7 +1120,7 @@
             }
         });
 
-        // Remove single-week assignments
+        // Remove assignments
         toDelete.sort((a, b) => b - a).forEach(idx => {
             data.assignments.splice(idx, 1);
         });
@@ -1267,11 +1269,11 @@
         };
 
 
-        // Render single-week assignments
-        const singleWeekAssignments = data.assignments.filter(a => a.duration > 0);
+        // Render all assignments
+        const allAssignments = data.assignments.filter(a => a.duration > 0);
         const cellAssignments = {};
 
-        singleWeekAssignments.forEach((assignment, idx) => {
+        allAssignments.forEach((assignment, idx) => {
             const realIdx = data.assignments.indexOf(assignment);
             const key = `${assignment.person}-${assignment.startWeek}`;
             if (!cellAssignments[key]) {
@@ -1280,7 +1282,7 @@
             cellAssignments[key].push({assignment, idx: realIdx});
         });
 
-        // Render stacked single-week assignments
+        // Render stacked assignments
         Object.entries(cellAssignments).forEach(([key, assignments]) => {
             const [person, week] = key.split('-').map(Number);
             const cell = document.querySelector(`.week-cell[data-person="${person}"][data-week="${week}"]`);
@@ -1291,7 +1293,7 @@
 
             assignments.forEach(({assignment, idx}) => {
                 const block = document.createElement('div');
-                block.className = 'task-block single-week';
+                block.className = 'task-block weeks';
 
                 if (assignment.excludedFromCalculations) {
                     block.classList.add('excluded');
@@ -2040,18 +2042,33 @@
         }
     }
 
+    function isEqualArrays(arr1, arr2) {
+        if (arr1.length !== arr2.length) return false;
+
+        // Create copies and sort them
+        const sorted1 = _.sortBy(arr1, obj => JSON.stringify(obj));
+        const sorted2 = _.sortBy(arr2, obj => JSON.stringify(obj));
+
+        return _.isEqual(sorted1, sorted2);
+    }
+
     // If URL carries a state, prefer it over localStorage
-    const urlStateDecoded = decodeStateFromUrl();
-    if (urlStateDecoded) {
-        console.log(urlStateDecoded);
-        data = urlStateDecoded;
-        history = [];
-        historyIndex = -1;
+    const urlStateDecodedData = decodeStateFromUrl();
+    if (urlStateDecodedData) {
+        console.log(urlStateDecodedData);
 
-        document.getElementById('startDateInput').value = (data.startDate || '' ).toString().split('T')[0];
-        document.getElementById('weeksInput').value = data.weeks;
+        if (!isEqualArrays(data.assignments, urlStateDecodedData.assignments)) {
+            if (confirm('Load state from URL? This will overwrite current board assignments state.')) {
+                data = urlStateDecodedData;
+                history = [];
+                historyIndex = -1;
 
-        updateUndoRedoButtons();
+                document.getElementById('startDateInput').value = (data.startDate || '').toString().split('T')[0];
+                document.getElementById('weeksInput').value = data.weeks;
+
+                updateUndoRedoButtons();
+            }
+        }
     }
 
     initializeBoard();
